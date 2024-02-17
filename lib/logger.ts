@@ -1,6 +1,8 @@
 import { APIRequestContext, APIResponse, Request } from "@playwright/test";
 import { ReadStream } from "fs";
 
+const stringify = (x) => JSON.stringify(x, null, 2);
+
 type Options =
   | {
       data?: any;
@@ -31,8 +33,6 @@ export class APIRequestLogger implements APIRequestContext {
   }
 
   private async printReqRes(url, options, method) {
-    const stringify = (x) => JSON.stringify(x, null, 2);
-
     console.log(`URL: ${url}`);
     console.log(`HEADERS:\n${stringify(options?.headers)}`);
     console.log(`REQ BODY:\n${stringify(options?.data)}`);
@@ -51,11 +51,24 @@ export class APIRequestLogger implements APIRequestContext {
   dispose(): Promise<void> {
     return this.request.dispose();
   }
-  fetch(
+  async fetch(
     urlOrRequest: string | Request,
-    options?: Options
+    options?: Options & { method: string }
   ): Promise<APIResponse> {
-    return this.printReqRes(urlOrRequest, options, "fetch");
+    if (typeof urlOrRequest === "string") {
+      return this.printReqRes(urlOrRequest, options, "fetch");
+    }
+    console.log(`URL: ${urlOrRequest.url}`);
+    console.log(`HEADERS:\n${stringify(options?.headers)}`);
+    console.log(`REQ BODY:\n${stringify(options?.data)}`);
+
+    const res = await this.request.fetch(urlOrRequest, options);
+
+    console.log(`RES: ${res.status()}`);
+    console.log(`RES HEADERS:\n${stringify(res.headers())}`);
+    console.log(`RES BODY:\n${await res.text()}`);
+
+    return res;
   }
   get(url: string, options?: Options): Promise<APIResponse> {
     return this.printReqRes(url, options, "get");
