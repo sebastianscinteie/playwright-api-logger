@@ -26,24 +26,33 @@ type Options =
   | undefined;
 
 export class APIRequestLogger implements APIRequestContext {
+  private _baseURL: string | undefined;
   request: APIRequestContext;
-  constructor(request: APIRequestContext) {
+
+  constructor(request: APIRequestContext, baseUrl: string | undefined) {
     this.request = request;
+    this._baseURL = baseUrl;
   }
 
-  private async printReqRes(url, options: Options, method) {
+  private async _printReqRes(url: string, options: Options, method) {
     //implement logging/reporting here
     const stringify = (x) => JSON.stringify(x, null, 2);
 
-    if (method === "fetch") {
-      console.log(`REQ: ${options?.method?.toUpperCase()} ${url}`);
+    let urlObj: URL;
+    if (URL.canParse(url)) {
+      urlObj = new URL(url);
     } else {
-      console.log(`REQ: ${method.toUpperCase()} ${url}`);
+      urlObj = new URL(url, this._baseURL);
     }
+
+    method = method === "fetch" ? options?.method : method;
+
+    console.log(`REQ: ${method.toUpperCase()} ${urlObj.toString()}`);
+    console.log(`REQ ENDPOINT: ${urlObj.pathname}${urlObj.search}`);
     options?.headers && console.log(`HEADERS:\n${stringify(options?.headers)}`);
     options?.data && console.log(`REQ BODY:\n${stringify(options?.data)}`);
 
-    const res = await this.request[method](url, options);
+    const res = await this.request[method?.toLowerCase()](url, options);
     console.log(`RES: ${res.status()}`);
     console.log(`RES HEADERS:\n${stringify(res.headers())}`);
     console.log(`RES BODY:\n${await res.text()}`);
@@ -52,7 +61,7 @@ export class APIRequestLogger implements APIRequestContext {
   }
 
   async delete(url: string, options?: Options): Promise<APIResponse> {
-    return await this.printReqRes(url, options, "delete");
+    return await this._printReqRes(url, options, "delete");
   }
   dispose(): Promise<void> {
     return this.request.dispose();
@@ -67,22 +76,22 @@ export class APIRequestLogger implements APIRequestContext {
     } else {
       url = urlOrRequest.url();
     }
-    return this.printReqRes(url, options, "fetch");
+    return this._printReqRes(url, options, "fetch");
   }
   get(url: string, options?: Options): Promise<APIResponse> {
-    return this.printReqRes(url, options, "get");
+    return this._printReqRes(url, options, "get");
   }
   head(url: string, options?: Options): Promise<APIResponse> {
-    return this.printReqRes(url, options, "head");
+    return this._printReqRes(url, options, "head");
   }
   patch(url: string, options?: Options): Promise<APIResponse> {
-    return this.printReqRes(url, options, "patch");
+    return this._printReqRes(url, options, "patch");
   }
   post(url: string, options?: Options): Promise<APIResponse> {
-    return this.printReqRes(url, options, "post");
+    return this._printReqRes(url, options, "post");
   }
   put(url: string, options?: Options): Promise<APIResponse> {
-    return this.printReqRes(url, options, "put");
+    return this._printReqRes(url, options, "put");
   }
   storageState(options?: { path?: string | undefined } | undefined): Promise<{
     cookies: {
