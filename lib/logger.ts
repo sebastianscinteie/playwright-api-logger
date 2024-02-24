@@ -1,8 +1,6 @@
 import { APIRequestContext, APIResponse, Request } from "@playwright/test";
 import { ReadStream } from "fs";
 
-const stringify = (x) => JSON.stringify(x, null, 2);
-
 type Options =
   | {
       data?: any;
@@ -23,6 +21,7 @@ type Options =
         | undefined;
       params?: { [key: string]: string | number | boolean } | undefined;
       timeout?: number | undefined;
+      method?: string;
     }
   | undefined;
 
@@ -32,10 +31,17 @@ export class APIRequestLogger implements APIRequestContext {
     this.request = request;
   }
 
-  private async printReqRes(url, options, method) {
-    console.log(`URL: ${url}`);
-    console.log(`HEADERS:\n${stringify(options?.headers)}`);
-    console.log(`REQ BODY:\n${stringify(options?.data)}`);
+  private async printReqRes(url, options: Options, method) {
+    //implement logging/reporting here
+    const stringify = (x) => JSON.stringify(x, null, 2);
+
+    if (method === "fetch") {
+      console.log(`REQ: ${options?.method?.toUpperCase()} ${url}`);
+    } else {
+      console.log(`REQ: ${method.toUpperCase()} ${url}`);
+    }
+    options?.headers && console.log(`HEADERS:\n${stringify(options?.headers)}`);
+    options?.data && console.log(`REQ BODY:\n${stringify(options?.data)}`);
 
     const res = await this.request[method](url, options);
     console.log(`RES: ${res.status()}`);
@@ -55,20 +61,13 @@ export class APIRequestLogger implements APIRequestContext {
     urlOrRequest: string | Request,
     options?: Options & { method: string }
   ): Promise<APIResponse> {
+    let url: string;
     if (typeof urlOrRequest === "string") {
-      return this.printReqRes(urlOrRequest, options, "fetch");
+      url = urlOrRequest;
+    } else {
+      url = urlOrRequest.url();
     }
-    console.log(`URL: ${urlOrRequest.url}`);
-    console.log(`HEADERS:\n${stringify(options?.headers)}`);
-    console.log(`REQ BODY:\n${stringify(options?.data)}`);
-
-    const res = await this.request.fetch(urlOrRequest, options);
-
-    console.log(`RES: ${res.status()}`);
-    console.log(`RES HEADERS:\n${stringify(res.headers())}`);
-    console.log(`RES BODY:\n${await res.text()}`);
-
-    return res;
+    return this.printReqRes(url, options, "fetch");
   }
   get(url: string, options?: Options): Promise<APIResponse> {
     return this.printReqRes(url, options, "get");
